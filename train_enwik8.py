@@ -19,6 +19,21 @@ GENERATE_EVERY = 500
 GENERATE_LENGTH = 1024
 SEQ_LEN = 1024
 
+# Fungsi untuk mendeteksi device
+def get_device():
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f"Menggunakan GPU: {torch.cuda.get_device_name(0)}")
+        print(f"Jumlah GPU tersedia: {torch.cuda.device_count()}")
+        print(f"CUDA Version: {torch.version.cuda}")
+        # Cetak informasi memori GPU
+        print(f"Total GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+        print(f"Memory tersedia: {torch.cuda.memory_allocated(0) / 1e9:.2f} GB digunakan")
+    else:
+        device = torch.device("cpu")
+        print("GPU tidak tersedia, menggunakan CPU")
+    return device
+
 # Helper functions
 def cycle(loader):
     while True:
@@ -52,7 +67,7 @@ def generate(model, prompts, seq_len, temperature=1.0):
     return generated[:, t:]
 
 # Persiapan data enwik8
-def prepare_data():
+def prepare_data(device):
     with gzip.open('./data/enwik8.gz') as file:
         data = np.frombuffer(file.read(int(95e6)), dtype=np.uint8).copy()
         train_x, valid_x = np.split(data, [int(90e6)])
@@ -60,20 +75,24 @@ def prepare_data():
     return data_train, data_val
 
 class TextSamplerDataset(Dataset):
-    def __init__(self, data, seq_len):
+    def __init__(self, data, seq_len, device):
         super().__init__()
         self.data = data
         self.seq_len = seq_len
+        self.device = device
 
     def __getitem__(self, index):
         rand_start = torch.randint(0, self.data.size(0) - self.seq_len - 1, (1,))
         full_seq = self.data[rand_start: rand_start + self.seq_len + 1].long()
-        return full_seq.cuda()
+        return full_seq.to(self.device)
 
     def __len__(self):
         return self.data.size(0) // self.seq_len
 
 def main():
+    # Deteksi device
+    device = get_device()
+    
     # Instansiasi model CrossFormer
     dimensi_embedding = 256
     ukuran_vocab = 256  # Untuk enwik8 (ASCII)
@@ -91,12 +110,12 @@ def main():
         dropout=0.1,
         norm_type="dyt"  # Menggunakan Dynamic Tanh normalization
     )
-    model.cuda()
+    model.to(device)
     
     # Persiapan data
-    data_train, data_val = prepare_data()
-    train_dataset = TextSamplerDataset(data_train, SEQ_LEN)
-    val_dataset = TextSamplerDataset(data_val, SEQ_LEN)
+    data_train, data_val = prepare_data(device)
+    train_dataset = TextSamplerDataset(data_train, SEQ_LEN, device)
+    val_dataset = TextSamplerDataset(data_val, SEQ_LEN, device)
     train_loader = cycle(DataLoader(train_dataset, batch_size=BATCH_SIZE, drop_last=True))
     val_loader = cycle(DataLoader(val_dataset, batch_size=BATCH_SIZE, drop_last=True))
     
