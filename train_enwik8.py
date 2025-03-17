@@ -19,15 +19,6 @@ GENERATE_EVERY = 500
 GENERATE_LENGTH = 1024
 SEQ_LEN = 1024
 
-# Fungsi untuk mendeteksi dan mengatur device
-def get_device():
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
-    elif torch.cuda.is_available():
-        return torch.device("cuda")
-    else:
-        return torch.device("cpu")
-
 # Helper functions
 def cycle(loader):
     while True:
@@ -44,7 +35,6 @@ def decode_tokens(tokens):
 def generate(model, prompts, seq_len, temperature=1.0):
     model.eval()
     device = next(model.parameters()).device
-    prompts = prompts.to(device)
     b, t = prompts.shape
     generated = prompts.clone()
 
@@ -62,7 +52,7 @@ def generate(model, prompts, seq_len, temperature=1.0):
     return generated[:, t:]
 
 # Persiapan data enwik8
-def prepare_data(device):
+def prepare_data():
     with gzip.open('./data/enwik8.gz') as file:
         data = np.frombuffer(file.read(int(95e6)), dtype=np.uint8).copy()
         train_x, valid_x = np.split(data, [int(90e6)])
@@ -84,10 +74,6 @@ class TextSamplerDataset(Dataset):
         return self.data.size(0) // self.seq_len
 
 def main():
-    # Tentukan device
-    device = get_device()
-    print(f"Menggunakan device: {device}")
-    
     # Instansiasi model CrossFormer
     dimensi_embedding = 256
     ukuran_vocab = 256  # Untuk enwik8 (ASCII)
@@ -104,10 +90,10 @@ def main():
         heads=heads,
         dropout=0.1,
         norm_type="dyt"  # Menggunakan Dynamic Tanh normalization
-    ).to(device)
+    )
     
     # Persiapan data
-    data_train, data_val = prepare_data(device)
+    data_train, data_val = prepare_data()
     train_dataset = TextSamplerDataset(data_train, SEQ_LEN)
     val_dataset = TextSamplerDataset(data_val, SEQ_LEN)
     train_loader = cycle(DataLoader(train_dataset, batch_size=BATCH_SIZE, drop_last=True))
@@ -121,7 +107,7 @@ def main():
         model.train()
         
         for __ in range(GRADIENT_ACCUMULATE_EVERY):
-            batch = next(train_loader).to(device)
+            batch = next(train_loader)
             inp, target = batch[:, :-1], batch[:, 1:]
             output = model(inp, inp)  # menggunakan inp sebagai sumber dan target
             loss = F.cross_entropy(output.reshape(-1, ukuran_vocab), target.reshape(-1))
@@ -135,7 +121,7 @@ def main():
         if i % VALIDATE_EVERY == 0:
             model.eval()
             with torch.no_grad():
-                batch = next(val_loader).to(device)
+                batch = next(val_loader)
                 inp, target = batch[:, :-1], batch[:, 1:]
                 output = model(inp, inp)
                 loss = F.cross_entropy(output.reshape(-1, ukuran_vocab), target.reshape(-1))
@@ -154,7 +140,7 @@ def main():
                 temperature=0.8
             )
             
-            output_str = decode_tokens(sample[0].cpu())
+            output_str = decode_tokens(sample[0])
             print(f'Generated text: \n{output_str}')
 
 if __name__ == "__main__":
