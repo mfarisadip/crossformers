@@ -134,6 +134,8 @@ if __name__ == "__main__":
         jumlah_block,
         faktor_ekspansi=4,
         heads=8,
+        dropout=0.1,
+        norm_type="dyt",
     )
 
     print(model)
