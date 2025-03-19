@@ -6,6 +6,7 @@ import torch
 import torch.optim as optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.tensorboard import SummaryWriter
 
 from crossformers.crossformers import CrossFormers
 
@@ -28,7 +29,7 @@ def get_device():
         print(f"CUDA Version: {torch.version.cuda}")
         # Cetak informasi memori GPU
         print(f"Total GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
-        print(f"Memory tersedia: {torch.cuda.memory_allocated(0) / 1e9:.2f} GB digunakan")
+      #   print(f"Memory tersedia: {torch.cuda.memory_allocated(0) / 1e9:.2f} GB digunakan")
     else:
         device = torch.device("cpu")
         print("GPU tidak tersedia, menggunakan CPU")
@@ -93,6 +94,9 @@ def main():
     # Deteksi device
     device = get_device()
     
+    # Inisialisasi TensorBoard writer
+    writer = SummaryWriter(log_dir='./logs/crossformer_run')
+    
     # Instansiasi model CrossFormer
     dimensi_embedding = 256
     ukuran_vocab = 256  # Untuk enwik8 (ASCII)
@@ -134,6 +138,9 @@ def main():
             (loss / GRADIENT_ACCUMULATE_EVERY).backward()
         
         print(f'training loss: {loss.item()}')
+        # Log training loss ke TensorBoard
+        writer.add_scalar('Loss/train', loss.item(), i)
+        
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
         optimizer.zero_grad()
@@ -146,6 +153,8 @@ def main():
                 output = model(inp, inp)
                 loss = F.cross_entropy(output.reshape(-1, ukuran_vocab), target.reshape(-1))
                 print(f'validation loss: {loss.item()}')
+                # Log validation loss ke TensorBoard
+                writer.add_scalar('Loss/validation', loss.item(), i)
         
         if i % GENERATE_EVERY == 0:
             model.eval()
@@ -162,6 +171,9 @@ def main():
             
             output_str = decode_tokens(sample[0])
             print(f'Generated text: \n{output_str}')
+    
+    # Tutup TensorBoard writer setelah selesai
+    writer.close()
 
 if __name__ == "__main__":
     main()
