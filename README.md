@@ -1,9 +1,9 @@
 # CrossFormers
-Implementasi transformer full-attention yang ringkas namun lengkap dengan berbagai fitur eksperimental menjanjikan dari berbagai paper penelitian.
+Implementasi transformer full-attention yang ringkas namun lengkap dengan berbagai fitur eksperimental relevan dari berbagai paper penelitian.
 
 ## Deskripsi
 
-CrossFormers adalah implementasi arsitektur Transformer dengan mekanisme full-attention yang menggabungkan beberapa fitur eksperimental dari berbagai paper penelitian terkini. Model ini dirancang untuk berbagai tugas NLP seperti machine translation, text summarization, dan language modeling.
+CrossFormers adalah implementasi arsitektur Transformer dengan mekanisme full-attention yang menggabungkan beberapa fitur eksperimental relevan dari berbagai paper penelitian terkini. Model ini dirancang untuk berbagai tugas NLP seperti machine translation, text summarization, dan language modeling.
 
 ## Arsitektur Model
 
@@ -89,6 +89,7 @@ Sebelum menjalankan proyek ini, pastikan Anda telah menginstal:
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
 - [An Introduction to Transformers](https://arxiv.org/abs/2304.10557)
 - [Transformers without Normalization](https://arxiv.org/abs/2503.10622)
+- [Direct Preference Optimization: Your Language Model is Secretly a Reward Model](https://arxiv.org/abs/2305.18290)
 
 ## Kredit
 Kode ini merupakan modifikasi dan pengembangan lebih lanjut dari implementasi dasar Transformer oleh [WargaSlowy](https://github.com/WargaSlowy/transformer). Kami telah menambahkan fitur-fitur baru seperti Dynamic Tanh (DyT) normalization dan dukungan untuk dataset Enwik8.

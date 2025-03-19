@@ -108,6 +108,35 @@ class CrossFormers(nn.Module):
         output = self.fc_output(output)
         return output
 
+    def compute_logprobs(self, sumber: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """
+        Menghitung log probabilitas untuk evaluasi DPO
+        
+        Parameters:
+            sumber (torch.Tensor): Input tensor sumber
+            target (torch.Tensor): Target tensor output
+            
+        Return:
+            torch.Tensor: Log probabilities untuk setiap token dalam target
+        """
+        # Generate outputs
+        target_mask = self.buat_mask_target(target).to(target.device)
+        encoder_output = self.encoder(sumber)
+        output = self.decoder(target, encoder_output, target_mask)
+        logits = self.fc_output(output)
+        
+        # Compute log probabilities
+        log_probs = F.log_softmax(logits, dim=-1)
+        
+        # Get log probs for the target tokens
+        target_log_probs = torch.gather(
+            log_probs[:, :-1], 
+            dim=2, 
+            index=target[:, 1:].unsqueeze(-1)
+        ).squeeze(-1)
+        
+        return target_log_probs
+
 
 if __name__ == "__main__":
     ukuran_vocab_sumber: int = 11

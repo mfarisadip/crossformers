@@ -1,6 +1,7 @@
 import copy
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class DyT(nn.Module):
@@ -64,6 +65,44 @@ def replikasi(block, N: int = 6) -> nn.ModuleList:
     """
     block_stack = nn.ModuleList([copy.deepcopy(block) for _ in range(N)])
     return block_stack
+
+
+class DPOLoss(nn.Module):
+    """
+    Implementasi Direct Preference Optimization (DPO) Loss.
+    
+    Parameters:
+        beta (float): Parameter suhu yang mengontrol kekuatan regularisasi KL (default: 0.1)
+        
+    Forward:
+        policy_chosen_logps (torch.Tensor): Log probabilitas dari model untuk respons pilihan
+        policy_rejected_logps (torch.Tensor): Log probabilitas dari model untuk respons yang ditolak
+        reference_chosen_logps (torch.Tensor): Log probabilitas dari model referensi untuk respons pilihan
+        reference_rejected_logps (torch.Tensor): Log probabilitas dari model referensi untuk respons yang ditolak
+        
+    Return:
+        torch.Tensor: Nilai loss DPO
+    """
+    def __init__(self, beta=0.1):
+        super().__init__()
+        self.beta = beta
+    
+    def forward(
+        self, 
+        policy_chosen_logps, 
+        policy_rejected_logps,
+        reference_chosen_logps,
+        reference_rejected_logps
+    ):
+        # Hitung KL divergence antara policy dan reference model
+        pi_logratios = policy_chosen_logps - reference_chosen_logps
+        pi_logratios_rejected = policy_rejected_logps - reference_rejected_logps
+        
+        # Hitung DPO loss
+        logits = pi_logratios - pi_logratios_rejected
+        losses = -F.logsigmoid(self.beta * logits)
+        
+        return losses.mean()
 
 
 if __name__ == "__main__":

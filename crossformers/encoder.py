@@ -58,7 +58,9 @@ class TransformerBlock(nn.Module):
         norm_type: str = "layernorm"
     ) -> None:
         super(TransformerBlock, self).__init__()
-
+        
+        assert dimensi_embedding % heads == 0, f"Dimensi embedding {dimensi_embedding} tidak dapat dibagi habis dengan jumlah heads {heads}"
+        
         self.attention = MultiHeadAttention(dimensi_embedding, heads)
         self.norm1 = get_norm_layer(norm_type, dimensi_embedding)
         self.norm2 = get_norm_layer(norm_type, dimensi_embedding)

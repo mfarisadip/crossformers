@@ -143,7 +143,7 @@ class Decoder(nn.Module):
     ) -> None:
         super(Decoder, self).__init__()
         self.embedding = nn.Embedding(ukuran_target_vocab, dimensi_embedding)
-        self.positionl_encoder = PositionalEncoding(dimensi_embedding, panjang_sekuens)
+        self.positional_encoder = PositionalEncoding(dimensi_embedding, panjang_sekuens)
         self.blocks = nn.ModuleList([
             DecoderBlock(dimensi_embedding, heads, faktor_ekspansi, dropout, norm_type)
             for _ in range(jumlah_blocks)
@@ -153,7 +153,7 @@ class Decoder(nn.Module):
     def forward(
         self, x: torch.Tensor, encoder_output: torch.Tensor, mask: torch.Tensor = None
     ) -> torch.Tensor:
-        x = self.dropout(self.positionl_encoder(self.embedding(x)))
+        x = self.dropout(self.positional_encoder(self.embedding(x)))
 
         for block in self.blocks:
             x = block(encoder_output, encoder_output, x, mask)

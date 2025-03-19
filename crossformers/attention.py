@@ -19,10 +19,11 @@ class MultiHeadAttention(nn.Module):
     Attribut:
         dimensi_embedding (int): menyimpan dimensi vektor embedding
         heads (int): menyimpan jumlah head
-        head (int): dimensi tiap head (dimensi_embedding // heads)
+        head_dim (int): dimensi tiap head (dimensi_embedding // heads)
         query (nn.Linear): lapisan linear untuk proyeksi query (tanpa bias)
         key (nn.Linear): lapisan linear untuk proyeksi value (tanpa bias)
         fc_output (nn.Linear): lapisan linear untuk menggabungkan hasil head
+        dropout (nn.Dropout): dropout untuk menambahkan noise pada attention scores
 
     Informasi tambahan:
         - mengamsumsikan dimensi_embedding dapat dibagi habis oleh heads
@@ -44,17 +45,20 @@ class MultiHeadAttention(nn.Module):
         torch.Tensor: tensor output dengan bentuk (batch, q_len, dimensi_embedding)
     """
 
-    def __init__(self, dimensi_embedding: int = 512, heads: int = 8) -> None:
+    def __init__(self, dimensi_embedding: int = 512, heads: int = 8, dropout: float = 0.1) -> None:
         super(MultiHeadAttention, self).__init__()
+        assert dimensi_embedding % heads == 0, f"Dimensi embedding {dimensi_embedding} tidak dapat dibagi habis dengan jumlah heads {heads}"
         self.dimensi_embedding = dimensi_embedding
         self.heads = heads
-        self.head = int(self.dimensi_embedding / self.heads)
-
-        self.query = nn.Linear(self.head, self.head, bias=False)
-        self.value = nn.Linear(self.head, self.head, bias=False)
-        self.key = nn.Linear(self.head, self.head, bias=False)
-
-        self.fc_output = nn.Linear(self.head * self.heads, dimensi_embedding)
+        self.head_dim = int(self.dimensi_embedding / self.heads)
+        
+        # Proyeksi pada dimensi penuh, bukan per-head
+        self.query = nn.Linear(dimensi_embedding, dimensi_embedding, bias=False)
+        self.key = nn.Linear(dimensi_embedding, dimensi_embedding, bias=False)
+        self.value = nn.Linear(dimensi_embedding, dimensi_embedding, bias=False)
+        
+        self.fc_output = nn.Linear(dimensi_embedding, dimensi_embedding)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(
         self,
@@ -65,25 +69,23 @@ class MultiHeadAttention(nn.Module):
     ) -> torch.Tensor:
         batch_size = key.size(0)
         k_len, q_len, v_len = key.size(1), query.size(1), value.size(1)
-
-        key = key.reshape(batch_size, k_len, self.heads, self.head)
-        query = query.reshape(batch_size, q_len, self.heads, self.head)
-        value = value.reshape(batch_size, v_len, self.heads, self.head)
-
-        key = self.key(key)
-        query = self.query(query)
-        value = self.value(value)
-
+        
+        # Proyeksi terlebih dahulu, kemudian reshape
+        query = self.query(query).reshape(batch_size, q_len, self.heads, self.head_dim)
+        key = self.key(key).reshape(batch_size, k_len, self.heads, self.head_dim)
+        value = self.value(value).reshape(batch_size, v_len, self.heads, self.head_dim)
+        
         product = torch.einsum("bqhd,bkhd->bhqk", [query, key])
 
         if mask is not None:
             product = product.masked_fill(mask == 0, float("-1e20"))
 
-        product = product / sqrt(self.head)
+        product = product / sqrt(self.head_dim)
         scores = F.softmax(product, dim=-1)
+        scores = self.dropout(scores)  # Tambah dropout pada attention scores
 
         output = torch.einsum("bhqv,bvhd->bqhd", [scores, value]).reshape(
-            batch_size, q_len, self.heads * self.head
+            batch_size, q_len, self.heads * self.head_dim
         )
 
         output = self.fc_output(output)
